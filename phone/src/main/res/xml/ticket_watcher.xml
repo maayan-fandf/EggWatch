@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Read-only: watches the Egged app and takes screenshots. No gestures, no clicks. -->
+<!-- Watches the Egged app and takes screenshots. Gestures are used only for a run the user starts from the watch. -->
 <accessibility-service
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/a11y_description"
@@ -7,6 +7,7 @@
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagReportViewIds"
     android:canRetrieveWindowContent="true"
+    android:canPerformGestures="true"
     android:canTakeScreenshot="true"
     android:notificationTimeout="300"
     android:packageNames="com.egged.egg" />

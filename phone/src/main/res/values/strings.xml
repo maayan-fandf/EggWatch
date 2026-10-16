@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="a11y_label">EggWatch – שיקוף כרטיס לשעון</string>
-    <string name="a11y_description">השירות מסתכל רק על אפליקציית אגד. כשמוצג בה קוד QR של כרטיס, הוא מעתיק אותו לשעון. השירות לא לוחץ על שום דבר ולא פועל באפליקציות אחרות.</string>
+    <string name="a11y_description">השירות מסתכל על אפליקציית אגד. כשמוצג בה קוד QR של כרטיס, הוא מעתיק אותו לשעון. הוא מעיר את הטלפון ולוחץ רק כשמבקשים זאת מהשעון.</string>
 </resources>

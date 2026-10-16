@@ -1,9 +1,12 @@
 package com.eggwatch.app
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityService.GestureResultCallback
 import android.accessibilityservice.AccessibilityService.ScreenshotResult
 import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
+import android.accessibilityservice.GestureDescription
 import android.graphics.Bitmap
+import android.graphics.Path
 import android.os.PowerManager
 import android.os.SystemClock
 import android.view.Display
@@ -25,12 +28,14 @@ import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 
 /**
- * Read-only mirror. While the Egged app is on screen, it screenshots every
- * second or so, and whenever a QR code shows up it copies it to the watch.
+ * Mirror. While the Egged app is on screen, it screenshots every second or
+ * so, and whenever a QR code shows up it copies it to the watch.
  *
- * It never taps, scrolls or types — the previous version auto-tapped buttons
- * in Egged and got in the way of scanning on the bus. Everything it sees goes
- * to [RideLog] so one real ride tells us how the ticket behaves.
+ * On its own it never taps, scrolls or types — the previous version
+ * auto-tapped buttons in Egged and got in the way of scanning on the bus.
+ * Gestures ([swipeUp]) run only for a request the user makes from the watch.
+ * Everything it sees goes to [RideLog] so one real ride tells us how the
+ * ticket behaves.
  */
 class TicketWatcherService : AccessibilityService() {
 
@@ -41,6 +46,30 @@ class TicketWatcherService : AccessibilityService() {
     override fun onServiceConnected() {
         RideLog.init(applicationContext)
         RideLog.add("service_on")
+        instance = this
+    }
+
+    /** Puts the phone back to sleep after a watch-driven run. */
+    fun lockScreen(): Boolean = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+
+    /** The lock-screen "swipe up" that asks Android (and Watch Unlock) to open the phone. */
+    suspend fun swipeUp(): Boolean {
+        val metrics = resources.displayMetrics
+        val x = metrics.widthPixels / 2f
+        val path = Path().apply {
+            moveTo(x, metrics.heightPixels * 0.85f)
+            lineTo(x, metrics.heightPixels * 0.35f)
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 300))
+            .build()
+        return suspendCancellableCoroutine { cont ->
+            val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
+                override fun onCompleted(gestureDescription: GestureDescription) = cont.resume(true)
+                override fun onCancelled(gestureDescription: GestureDescription) = cont.resume(false)
+            }, null)
+            if (!dispatched) cont.resume(false)
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -52,6 +81,7 @@ class TicketWatcherService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
+        if (instance === this) instance = null
         scope.cancel()
         shotExecutor.shutdown()
         super.onDestroy()
@@ -230,6 +260,11 @@ class TicketWatcherService : AccessibilityService() {
 
     companion object {
         const val EGG_PACKAGE = "com.egged.egg"
+
+        /** The running service, while the user has it enabled. */
+        @Volatile
+        var instance: TicketWatcherService? = null
+            private set
 
         // Scan quickly right after Egged opens, then back off to save battery
         // while it just sits on screen. Still fine-grained enough to time a rotating code.

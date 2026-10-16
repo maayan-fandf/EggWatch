@@ -1,0 +1,13 @@
+.gradle/
+build/
+/local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+.kotlin/
+*.apk
+# Local copy of the first (MediaProjection) attempt, kept for reference only.
+/old-v1/

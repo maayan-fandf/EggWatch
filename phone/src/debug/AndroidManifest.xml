@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug only. DUMP is held by adb's shell, so other apps can't fire it:
+             adb shell am broadcast -a com.eggwatch.app.SEND_TEST -p com.eggwatch.app -->
+        <receiver
+            android:name=".DebugCommandReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.eggwatch.app.SEND_TEST" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

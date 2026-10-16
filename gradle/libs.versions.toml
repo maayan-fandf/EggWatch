@@ -1,0 +1,30 @@
+[versions]
+agp = "9.4.0"
+kotlin = "2.2.10"
+composeBom = "2026.02.01"
+coreKtx = "1.16.0"
+activityCompose = "1.10.1"
+coroutines = "1.10.2"
+wearablePlayServices = "19.0.0"
+zxing = "3.5.3"
+wearCompose = "1.4.1"
+
+[libraries]
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui" }
+androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "coroutines" }
+play-services-wearable = { module = "com.google.android.gms:play-services-wearable", version.ref = "wearablePlayServices" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+wear-compose-material = { module = "androidx.wear.compose:compose-material", version.ref = "wearCompose" }
+wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "wearCompose" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

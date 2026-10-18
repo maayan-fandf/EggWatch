@@ -9,7 +9,8 @@
             android:permission="android.permission.DUMP">
             <intent-filter>
                 <action android:name="com.eggwatch.app.SEND_TEST" />
-                <action android:name="com.eggwatch.app.WAKE_TEST" />
+                <action android:name="com.eggwatch.app.RIDE_PREPARE" />
+                <action android:name="com.eggwatch.app.RIDE_CANCEL" />
             </intent-filter>
         </receiver>
     </application>

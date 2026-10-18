@@ -2,6 +2,8 @@ package com.eggwatch.app
 
 import android.content.Context
 import android.util.Log
+import com.eggwatch.shared.RideProtocol
+import com.eggwatch.shared.RideStatus
 import com.eggwatch.shared.Ticket
 import com.eggwatch.shared.TicketProtocol
 import com.eggwatch.shared.latestTicket
@@ -56,6 +58,20 @@ object WatchLink {
             isTest = true,
         )
         return publish(context, ticket)
+    }
+
+    /** Progress for a ride started from the watch; to every connected watch when [nodeId] is null. */
+    suspend fun sendRideStatus(context: Context, nodeId: String?, status: RideStatus) {
+        try {
+            val client = Wearable.getMessageClient(context)
+            val targets = nodeId?.let(::listOf)
+                ?: Wearable.getNodeClient(context).connectedNodes.await().map { it.id }
+            for (target in targets) {
+                client.sendMessage(target, RideProtocol.PATH_STATUS, status.toBytes()).await()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "ride status not delivered", e)
+        }
     }
 
     suspend fun connectedWatches(context: Context): List<String> = try {

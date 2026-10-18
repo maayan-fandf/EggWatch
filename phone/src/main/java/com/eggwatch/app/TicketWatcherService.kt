@@ -12,6 +12,7 @@ import android.os.SystemClock
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import com.eggwatch.shared.Ticket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +34,7 @@ import kotlin.coroutines.resume
  *
  * On its own it never taps, scrolls or types — the previous version
  * auto-tapped buttons in Egged and got in the way of scanning on the bus.
- * Gestures ([swipeUp]) run only for a request the user makes from the watch.
+ * Taps ([tap]) and clicks run only for a ride the user starts from the watch.
  * Everything it sees goes to [RideLog] so one real ride tells us how the
  * ticket behaves.
  */
@@ -49,19 +50,26 @@ class TicketWatcherService : AccessibilityService() {
         instance = this
     }
 
+    /**
+     * Egged's top window, if it is on screen. Looks through all windows rather
+     * than the "active" one, which can be a picture-in-picture video or the
+     * notification shade while Egged is in front.
+     */
+    fun eggRoot(): AccessibilityNodeInfo? =
+        windows.firstNotNullOfOrNull { window ->
+            window.takeIf { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+                ?.root
+                ?.takeIf { it.packageName == EGG_PACKAGE }
+        }
+
     /** Puts the phone back to sleep after a watch-driven run. */
     fun lockScreen(): Boolean = performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
 
-    /** The lock-screen "swipe up" that asks Android (and Watch Unlock) to open the phone. */
-    suspend fun swipeUp(): Boolean {
-        val metrics = resources.displayMetrics
-        val x = metrics.widthPixels / 2f
-        val path = Path().apply {
-            moveTo(x, metrics.heightPixels * 0.85f)
-            lineTo(x, metrics.heightPixels * 0.35f)
-        }
+    /** A plain tap, for Egged views that don't answer ACTION_CLICK. */
+    suspend fun tap(x: Float, y: Float): Boolean {
+        val path = Path().apply { moveTo(x, y) }
         val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, 300))
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 50))
             .build()
         return suspendCancellableCoroutine { cont ->
             val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
@@ -94,8 +102,8 @@ class TicketWatcherService : AccessibilityService() {
         val startedAt = SystemClock.elapsedRealtime()
         try {
             while (currentCoroutineContext().isActive) {
-                val root = rootInActiveWindow
-                if (root?.packageName != EGG_PACKAGE || !isScreenOn()) break
+                val root = eggRoot()
+                if (root == null || !isScreenOn()) break
                 session.noteScreen(root)
                 session.scan()
                 val elapsed = SystemClock.elapsedRealtime() - startedAt

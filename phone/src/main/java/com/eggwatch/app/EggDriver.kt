@@ -9,17 +9,23 @@ import kotlinx.coroutines.delay
 /**
  * Reads and presses Egged's screens through the accessibility service.
  *
- * View ids come from a real ride's log (2026-10-18, Carlebach station):
- *   home:      other_scan_layout ("רכבת קלה / כרמלית / רכבלית")
- *   panel:     tv_other_boarding_station_name, sum_passengers_other,
- *              create_ticket_wrapper_other ("צרו לי כרטיס נסיעה")
+ * View ids come from real runs' logs (2026-10-18, Carlebach station and the office):
+ *   home:       other_scan_layout ("רכבת קלה / כרמלית / רכבלית") toggles an inline panel
+ *   panel:      tv_other_boarding_station_name, sum_passengers_other,
+ *               create_ticket_wrapper_other ("צרו לי כרטיס נסיעה");
+ *               other_scan_progress while locating;
+ *               at_the_station ("אני בתחנה, בואו ננסה שוב") when no station was found
  *   no station: train_not_in_station_title, train_not_in_station_positive_button_wrapper
- *   ticket:    boarding_pass_train_card ("כרטיס נסיעה פעיל")
+ *   ticket:     boarding_pass_train_card ("כרטיס נסיעה פעיל")
  */
 class EggDriver(private val service: TicketWatcherService) {
 
     sealed interface Screen {
         data object Home : Screen
+        /** The light-rail panel is open and Egged is still looking for a station. */
+        data object Locating : Screen
+        /** The panel is open but Egged found no station (it offers "I'm at the station, try again"). */
+        data object NoStationFound : Screen
         data class StationPanel(val station: String, val price: String, val passengers: Int) : Screen
         data object NotAtStation : Screen
         data object ActiveTicket : Screen
@@ -40,14 +46,18 @@ class EggDriver(private val service: TicketWatcherService) {
         return when {
             root.has(ACTIVE_TICKET) -> Screen.ActiveTicket
             root.has(NOT_IN_STATION) -> Screen.NotAtStation
-            root.has(CREATE_TICKET) && root.has(STATION_NAME) -> {
+            root.has(STATION_NAME) -> {
                 val station = root.text(STATION_NAME)
-                if (station.isBlank()) Screen.Other // still locating
-                else Screen.StationPanel(
-                    station = station,
-                    price = root.firstText { it.contains('₪') },
-                    passengers = root.text(PASSENGERS).toIntOrNull() ?: 1,
-                )
+                when {
+                    root.has(PANEL_PROGRESS) -> Screen.Locating
+                    station.isNotBlank() && root.has(CREATE_TICKET) -> Screen.StationPanel(
+                        station = station,
+                        price = root.firstText { it.contains('₪') },
+                        passengers = root.text(PASSENGERS).toIntOrNull() ?: 1,
+                    )
+                    root.has(RETRY_STATION) -> Screen.NoStationFound
+                    else -> Screen.Locating
+                }
             }
             root.has(LIGHT_RAIL) -> Screen.Home
             else -> Screen.Other
@@ -79,6 +89,7 @@ class EggDriver(private val service: TicketWatcherService) {
     suspend fun openLightRailPanel() = click(LIGHT_RAIL)
     suspend fun createTicket() = click(CREATE_TICKET)
     suspend fun dismissNotAtStation() = click(NOT_IN_STATION_OK)
+    suspend fun retryStation() = click(RETRY_STATION)
     suspend fun goHomeTab() = click(PAYMENT_TAB)
 
     private fun AccessibilityNodeInfo.find(id: String): AccessibilityNodeInfo? =
@@ -105,6 +116,8 @@ class EggDriver(private val service: TicketWatcherService) {
         const val STATION_NAME = "tv_other_boarding_station_name"
         const val PASSENGERS = "sum_passengers_other"
         const val CREATE_TICKET = "create_ticket_wrapper_other"
+        const val PANEL_PROGRESS = "other_scan_progress"
+        const val RETRY_STATION = "at_the_station"
         const val NOT_IN_STATION = "train_not_in_station_title"
         const val NOT_IN_STATION_OK = "train_not_in_station_positive_button_wrapper"
         const val ACTIVE_TICKET = "boarding_pass_train_card"

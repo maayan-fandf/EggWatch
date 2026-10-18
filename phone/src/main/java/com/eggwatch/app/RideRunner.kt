@@ -112,11 +112,24 @@ object RideRunner {
                 screen = egg.await(5_000) { it.known() } ?: return fail("מסך לא מוכר באגד")
             }
 
-            if (screen == EggDriver.Screen.Home) {
-                say(RideStatus(State.WORKING, "מחפש תחנה…"))
-                egg.openLightRailPanel()
-                screen = egg.await(STATION_WAIT_MS) { it.takeUnless { s -> s == EggDriver.Screen.Home }?.known() }
-                    ?: return fail("אגד לא הציגה תחנה")
+            if (screen == EggDriver.Screen.NotAtStation) {
+                // A leftover dialog from an earlier try: close it and ask again.
+                egg.dismissNotAtStation()
+                screen = egg.await(5_000) { it.known()?.takeUnless { s -> s == EggDriver.Screen.NotAtStation } }
+                    ?: return fail("מסך לא מוכר באגד")
+            }
+
+            say(RideStatus(State.WORKING, "מחפש תחנה…"))
+            // The panel may still be open from last time; tapping the row would close it.
+            if (screen == EggDriver.Screen.Home) egg.openLightRailPanel()
+            screen = egg.await(STATION_WAIT_MS) { it.decided() } ?: return fail("אגד לא הציגה תחנה")
+            if (screen == EggDriver.Screen.NoStationFound) {
+                // Underground, the first location fix often misses. Egged's own "try again".
+                say(RideStatus(State.WORKING, "מחפש תחנה שוב…"))
+                egg.retryStation()
+                // Let Egged start looking again before reading its answer.
+                egg.await(3_000) { it.takeUnless { s -> s == EggDriver.Screen.NoStationFound } }
+                screen = egg.await(STATION_WAIT_MS) { it.decided() } ?: return fail("אגד לא הציגה תחנה")
             }
 
             val panel = when (screen) {
@@ -125,6 +138,8 @@ object RideRunner {
                     egg.dismissNotAtStation()
                     return say(RideStatus(State.NOT_AT_STATION, "אגד לא מזהה תחנה בסביבה"))
                 }
+                EggDriver.Screen.NoStationFound ->
+                    return say(RideStatus(State.NOT_AT_STATION, "אגד לא מזהה תחנה בסביבה"))
                 is EggDriver.Screen.StationPanel -> screen
                 else -> return fail("מסך לא מוכר באגד")
             }
@@ -167,4 +182,13 @@ object RideRunner {
 
     private fun EggDriver.Screen?.known(): EggDriver.Screen? =
         this?.takeUnless { it == EggDriver.Screen.Other }
+
+    /** A screen that answers "can we buy here?" — not one Egged is still loading. */
+    private fun EggDriver.Screen?.decided(): EggDriver.Screen? = when (this) {
+        is EggDriver.Screen.StationPanel,
+        EggDriver.Screen.NoStationFound,
+        EggDriver.Screen.NotAtStation,
+        EggDriver.Screen.ActiveTicket -> this
+        else -> null
+    }
 }
